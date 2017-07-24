@@ -5,6 +5,8 @@ require 'net/http'
 require 'yaml'
 
 AUTH_FILE = "#{Dir.home}/.idea_cellular_auth.yml"
+
+#YAML dump => {:mobileNumber: '8112176543', :password: 'pass'}
 CRED_FILE = "#{Dir.home}/.idea_creds.yml"
 AUTH_EXPIRY = (5*60*60) # 5.hours
 
@@ -13,7 +15,7 @@ def get_with_cookie url, cookie
   req = Net::HTTP::Get.new(uri)
   req['Cookie'] = cookie
   req['User-Agent'] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36"
-  
+
   res = Net::HTTP.start(uri.hostname, uri.port,  :use_ssl => true) do |http|
     http.request(req)
   end
@@ -68,7 +70,7 @@ end
 def get_auth_cookie_from_network login_url
   params = YAML.load(File.open(CRED_FILE))
   login_res = post_with_cookie login_url, params, nil
-  cookie = login_res.get_fields('Set-Cookie').map{|c| c.gsub("Path=/;", "").gsub("HttpOnly", "").gsub(";", "").strip}.join('; ')  
+  cookie = login_res.get_fields('Set-Cookie').map{|c| c.gsub("Path=/;", "").gsub("HttpOnly", "").gsub(";", "").strip}.join('; ')
   file = File.open(AUTH_FILE, "w")
   YAML.dump({cookie: cookie, time: (Time.now + AUTH_EXPIRY)}, file)
   puts "Cookie from network..." 
@@ -98,5 +100,3 @@ rescue Exception => e
   sleep 10
   retry
 end
-
-
