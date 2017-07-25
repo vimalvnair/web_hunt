@@ -19,7 +19,6 @@ def get_with_cookie url, cookie
   res = Net::HTTP.start(uri.hostname, uri.port,  :use_ssl => true) do |http|
     http.request(req)
   end
-  puts "GET: #{res.code}"
   res
 end
 
@@ -33,7 +32,6 @@ def post_with_cookie url, data, cookie
   res = Net::HTTP.start(uri.hostname, uri.port,  :use_ssl => true) do |http|
     http.request(req)
   end
-  puts "POST: #{res.code}"
   res
 end
 
@@ -60,7 +58,6 @@ def get_auth_from_file
     file = File.open(AUTH_FILE)
     data = YAML.load(file)
     return nil if Time.now > data[:time]
-    puts "Cookie from file..." 
     data[:cookie]
   rescue Exception => e
     nil
@@ -73,7 +70,6 @@ def get_auth_cookie_from_network login_url
   cookie = login_res.get_fields('Set-Cookie').map{|c| c.gsub("Path=/;", "").gsub("HttpOnly", "").gsub(";", "").strip}.join('; ')
   file = File.open(AUTH_FILE, "w")
   YAML.dump({cookie: cookie, time: (Time.now + AUTH_EXPIRY)}, file)
-  puts "Cookie from network..." 
   cookie
 end
 
@@ -118,11 +114,11 @@ begin
 
   all_balance_hash  = get_all_balance cookie
 
-  puts get_data_balance all_balance_hash
-  puts get_data_expiry all_balance_hash
-  puts get_main_balance all_balance_hash
+  puts "\e[34m#{get_data_balance(all_balance_hash)}\e[0m / \e[35m#{get_main_balance(all_balance_hash)}\e[0m | ansi=true size=12"  
+  puts "---"
+  puts "Data Expiry: #{get_data_expiry all_balance_hash}"
 rescue Exception => e
-  puts e.inspect
+  puts "Error"
   File.delete(AUTH_FILE) if File.exists?(AUTH_FILE)
   sleep 5
   retry if (retries += 1 ) < 3
