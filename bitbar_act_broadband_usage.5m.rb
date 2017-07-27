@@ -7,7 +7,7 @@ require 'logger'
 
 AUTH_FILE = "#{Dir.home}/.act_broadband.yml"
 AUTH_EXPIRY = (2*60*60) # 5.hours
-LOG = Logger.new('act_broadband_usage.log', 'weekly')
+LOG = Logger.new("#{Dir.home}/bitbar_act_broadband_usage.log", 'weekly')
 
 def get_with_cookie url, cookie
   uri = URI(url)
@@ -19,7 +19,6 @@ def get_with_cookie url, cookie
     http.request(req)
   end
   LOG.info "GET: #{res.code}"
-  puts "GET: #{res.code}"
   res
 end
 
@@ -34,7 +33,6 @@ def post_with_cookie url, data, cookie
     http.request(req)
   end
   LOG.info "POST: #{res.code}"
-  puts "POST: #{res.code}"
   res
 end
 
@@ -51,7 +49,6 @@ def get_auth_from_file
     data = YAML.load(file)
     return nil if Time.now > data[:time]
     LOG.info "Cookie from file..."
-    puts "Cookie from file..." 
     return data[:cookie], data[:location]
   rescue Exception => e
     nil
@@ -64,7 +61,6 @@ def get_auth_cookie_from_network login_url
   file = File.open(AUTH_FILE, "w")
   YAML.dump({cookie: cookie, location: URI.escape(response['Location']), time: (Time.now + AUTH_EXPIRY)}, file)
   LOG.info "Cookie from network..."
-  puts "Cookie from network..." 
   return cookie, URI.escape(response['Location'])
 end
 
@@ -100,10 +96,10 @@ begin
 
   usage = html.css("table td").select{|t| t.text.include?('Quota')}.first.text
 
-  puts usage
+  usage = usage.split("(")[0]
+  puts "#{usage} | size=10 color=green"
 rescue Exception => e
   LOG.error "Error: #{e.inspect}"
-  puts e.inspect
   File.delete(AUTH_FILE) if File.exists?(AUTH_FILE)
   sleep 2
   retry if (retries += 1 ) < 3

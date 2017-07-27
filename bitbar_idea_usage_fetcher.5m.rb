@@ -10,7 +10,7 @@ AUTH_FILE = "#{Dir.home}/.idea_cellular_auth.yml"
 #YAML dump => {:mobileNumber: '8112176543', :password: 'pass'}
 CRED_FILE = "#{Dir.home}/.idea_creds.yml"
 AUTH_EXPIRY = (5*60*60) # 5.hours
-LOG = Logger.new("#{Dir.home}/logs/idea_cellular_usage.log", 10, 10024000)
+LOG = Logger.new("#{Dir.home}/logs/bitbar_idea_cellular_usage.log", 10, 10024000)
 
 def get_with_cookie url, cookie
   uri = URI(url)
@@ -22,7 +22,6 @@ def get_with_cookie url, cookie
     http.request(req)
   end
   LOG.info "GET:#{res.code} #{url}"
-  puts "GET: #{res.code}"
   res
 end
 
@@ -37,7 +36,6 @@ def post_with_cookie url, data, cookie
     http.request(req)
   end
   LOG.info "POST:#{res.code} #{url}"
-  puts "POST: #{res.code}"
   res
 end
 
@@ -65,7 +63,6 @@ def get_auth_from_file
     data = YAML.load(file)
     return nil if Time.now > data[:time]
     LOG.info "Cookie from file..."
-    puts "Cookie from file..." 
     data[:cookie]
   rescue Exception => e
     nil
@@ -79,7 +76,6 @@ def get_auth_cookie_from_network login_url
   file = File.open(AUTH_FILE, "w")
   YAML.dump({cookie: cookie, time: (Time.now + AUTH_EXPIRY)}, file)
   LOG.info "Cookie from network..."
-  puts "Cookie from network..." 
   cookie
 end
 
@@ -124,14 +120,13 @@ begin
   cookie = get_auth_cookie login_url
 
   all_balance_hash  = get_all_balance cookie
-  
-  puts get_data_balance all_balance_hash
-  puts get_data_expiry all_balance_hash
-  puts get_main_balance all_balance_hash
+
   LOG.info "#{get_data_balance all_balance_hash}:#{get_data_expiry all_balance_hash} / #{get_main_balance all_balance_hash}"
+
+  puts "\e[34m#{get_data_balance(all_balance_hash)}\e[0m / \e[35m#{get_main_balance(all_balance_hash)}\e[0m | ansi=true size=12"  
+  puts "---"
+  puts "Data Expiry: #{get_data_expiry all_balance_hash}"
 rescue Exception => e
-  LOG.error "Error: #{e.inspect}"
-  puts e.inspect
   File.delete(AUTH_FILE) if File.exists?(AUTH_FILE)
   sleep 5
   retry if (retries += 1 ) < 3

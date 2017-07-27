@@ -6,8 +6,9 @@ require 'yaml'
 require 'logger'
 
 AUTH_FILE = "#{Dir.home}/.act_broadband.yml"
+PUSH_BULLET_TOKEN = "#{Dir.home}/.push_bullet_token.yml"
 AUTH_EXPIRY = (2*60*60) # 5.hours
-LOG = Logger.new('act_broadband_usage.log', 'weekly')
+LOG = Logger.new('act_broadband_usage.log', 10, 10024000)
 
 def get_with_cookie url, cookie
   uri = URI(url)
@@ -18,7 +19,7 @@ def get_with_cookie url, cookie
   res = Net::HTTP.start(uri.hostname, uri.port) do |http|
     http.request(req)
   end
-  LOG.info "GET: #{res.code}"
+  LOG.info "GET:#{res.code} #{url}"
   puts "GET: #{res.code}"
   res
 end
@@ -33,7 +34,7 @@ def post_with_cookie url, data, cookie
   res = Net::HTTP.start(uri.hostname, uri.port) do |http|
     http.request(req)
   end
-  LOG.info "POST: #{res.code}"
+  LOG.info "POST:#{res.code} #{url}"
   puts "POST: #{res.code}"
   res
 end
@@ -68,8 +69,17 @@ def get_auth_cookie_from_network login_url
   return cookie, URI.escape(response['Location'])
 end
 
+def get_push_bullet_token
+  unless File.exists?(PUSH_BULLET_TOKEN)
+    LOG.fatal "Push bullet token file missing"
+    puts "Push bullet token file missing"
+    exit
+  end
+  YAML.load(File.open(PUSH_BULLET_TOKEN))[:token]
+end
 
 begin
+  LOG.info "Start..."
   retries ||= 0
   cookie, login_url = get_auth_cookie "http://portal.actcorp.in/group/blr/myaccount"
   sleep 2
@@ -100,11 +110,15 @@ begin
 
   usage = html.css("table td").select{|t| t.text.include?('Quota')}.first.text
 
+  LOG.info "Usage #{usage}"
   puts usage
+  LOG.info "Sending push notification"
+  push_bullet_token = get_push_bullet_token
+  `curl --header 'Access-Token: #{push_bullet_token}' --header 'Content-Type: application/json' --data-binary '{"body":"#{usage}","title":"ACT usage","type":"note", "channel_tag": "broadband"}' --request POST https://api.pushbullet.com/v2/pushes`
 rescue Exception => e
   LOG.error "Error: #{e.inspect}"
   puts e.inspect
   File.delete(AUTH_FILE) if File.exists?(AUTH_FILE)
-  sleep 2
-  retry if (retries += 1 ) < 3
+  sleep 5
+  retry if (retries += 1 ) < 10
 end
