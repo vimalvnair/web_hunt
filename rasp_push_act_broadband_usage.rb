@@ -4,11 +4,13 @@ require "nokogiri"
 require 'net/http'
 require 'yaml'
 require 'logger'
+require_relative './way2sms'
 
 AUTH_FILE = "#{Dir.home}/.act_broadband.yml"
 PUSH_BULLET_TOKEN = "#{Dir.home}/.push_bullet_token.yml"
 AUTH_EXPIRY = (2*60*60) # 5.hours
 LOG = Logger.new('act_broadband_usage.log', 10, 10024000)
+MOBILE_NUMBERS_FILE = "#{Dir.home}/.way2sms_recipients.yml"
 
 def get_with_cookie url, cookie
   uri = URI(url)
@@ -115,6 +117,14 @@ begin
   LOG.info "Sending push notification"
   push_bullet_token = get_push_bullet_token
   `curl --header 'Access-Token: #{push_bullet_token}' --header 'Content-Type: application/json' --data-binary '{"body":"#{usage}","title":"ACT usage","type":"note", "channel_tag": "broadband"}' --request POST https://api.pushbullet.com/v2/pushes`
+
+  if File.exists? MOBILE_NUMBERS_FILE
+    numbers = YAML.load(File.open(MOBILE_NUMBERS_FILE))
+    numbers.each do |number| 
+      Way2Sms.send_sms number, "ACT broadband usage: #{usage}"
+      sleep 5
+    end
+  end
 rescue Exception => e
   LOG.error "Error: #{e.inspect}"
   puts e.inspect

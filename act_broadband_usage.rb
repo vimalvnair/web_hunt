@@ -63,6 +63,7 @@ def get_auth_cookie_from_network login_url
   cookie = response.get_fields('Set-Cookie').map{|c| c.split('; ')[0] }.join("; ")
   file = File.open(AUTH_FILE, "w")
   YAML.dump({cookie: cookie, location: URI.escape(response['Location']), time: (Time.now + AUTH_EXPIRY)}, file)
+  file.close
   LOG.info "Cookie from network..."
   puts "Cookie from network..." 
   return cookie, URI.escape(response['Location'])
@@ -105,6 +106,6 @@ rescue Exception => e
   LOG.error "Error: #{e.inspect}"
   puts e.inspect
   File.delete(AUTH_FILE) if File.exists?(AUTH_FILE)
-  sleep 2
-  retry if (retries += 1 ) < 3
+  sleep 5
+  retry if (retries += 1 ) < 10
 end
