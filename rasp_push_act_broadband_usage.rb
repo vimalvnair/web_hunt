@@ -4,6 +4,7 @@ require "nokogiri"
 require 'net/http'
 require 'yaml'
 require 'logger'
+require 'time'
 require_relative './way2sms'
 
 AUTH_FILE = "#{Dir.home}/.act_broadband.yml"
@@ -80,6 +81,19 @@ def get_push_bullet_token
   YAML.load(File.open(PUSH_BULLET_TOKEN))[:token]
 end
 
+def get_averages usage
+  begin
+    time = Time.now
+    no_of_days_in_month = Date.new(time.year, time.month, -1).day
+    beginning_of_month =  Date.new(time.year, time.month, 1).to_time
+    elapsed_days = (time - beginning_of_month)/(60*60*24)
+    data = usage.strip.delete('()GB').split("Quota").map(&:strip).map(&:to_f)
+    return [data[0]/elapsed_days, data[1]/no_of_days_in_month].map{|i| i.round(2)}
+  rescue Exception => e
+    return ["", ""]
+  end
+end
+
 begin
   LOG.info "Start..."
   retries ||= 0
@@ -111,16 +125,19 @@ begin
   html = Nokogiri::HTML(response4.body)
 
   usage = html.css("table td").select{|t| t.text.include?('Quota')}.first.text
+  curr_avg, req_avg = get_averages(usage)
+  usage = usage + ", Curr. avg/day: #{curr_avg} GB, Req. avg: #{req_avg} GB"
 
-  LOG.info "Usage #{usage}"
   puts usage
+  LOG.info "Usage #{usage}"
   LOG.info "Sending push notification"
+
   push_bullet_token = get_push_bullet_token
   `curl --header 'Access-Token: #{push_bullet_token}' --header 'Content-Type: application/json' --data-binary '{"body":"#{usage}","title":"ACT usage","type":"note", "channel_tag": "broadband"}' --request POST https://api.pushbullet.com/v2/pushes`
 
   if File.exists? MOBILE_NUMBERS_FILE
     numbers = YAML.load(File.open(MOBILE_NUMBERS_FILE))
-    numbers.each do |number| 
+    numbers.each do |number|
       Way2Sms.send_sms number, "ACT broadband usage: #{usage}"
       sleep 5
     end
